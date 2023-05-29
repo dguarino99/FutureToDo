@@ -1,0 +1,48 @@
+Program:
+	commands*=Command
+;
+
+Command:
+	SingleTask | GetTask | Clear | RecurringTask | User | GUI
+;
+
+User:
+	'!' (user_value='LOGIN' user_name=Username | user_value='CREATE' user_name=Username | user_value='LOGOUT')
+;
+
+Username:
+	name = /[^\s]*/
+;
+
+SingleTask:
+	'-' add_date=Dates add_task=Task sub_task*=SubTask?
+;
+
+SubTask:
+	'|' subname=Task
+;
+
+GetTask:
+	'?' (get_date=Dates | get_date='CALENDAR' | get_date='ADMIN' | get_date='USERS')
+;
+
+Clear:
+	'CLEAR' (clear_date=Dates | clear_date='CALENDAR' | clear_date='ADMIN')
+;
+
+RecurringTask:
+	'~' add_date=Dates (iter_option='DAILY' | iter_option='WEEKLY' | iter_option='MONTHLY' | iter_option='YEARLY') add_task=Task sub_task*=SubTask?
+;
+
+GUI:
+	name = 'GUI'
+;
+
+Dates:
+	month=INT '/' day=INT '/' year=INT
+;
+
+Task:
+	name = /[^\r|]+/
+;
+
