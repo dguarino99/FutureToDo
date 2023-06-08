@@ -6,7 +6,7 @@ Python v3.6+
 textX (https://textx.github.io/textX/3.1/)
 
 What to download:
-FutureToDo-Full - includes all necessary files.
+FutureToDo-Full - includes all necessary files (or you can download the files separately: FTD.py, FutureToDo.tx, task_list.ftd). 
 
 How it works:
 FutureToDo.tx is the textX file that defines the grammar for the language. The task_list.ftd file is the file that will be used to write the code for the program. 
