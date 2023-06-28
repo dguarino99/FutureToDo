@@ -1,11 +1,17 @@
+from tkinter.tix import INTEGER
 from textx import metamodel_from_file
 from datetime import datetime, timedelta, date
 import sqlite3
 import calendar as cd
 
-
+#Retrieving meta language from file.
 FutureToDo_meta = metamodel_from_file('FutureToDo.tx')
-FutureToDo_model = FutureToDo_meta.model_from_file('task_list.ftd')
+#Assigning file to read the language from.
+#try-except used in case of invalid commands.
+try:
+    FutureToDo_model = FutureToDo_meta.model_from_file('task_list.ftd')
+except Exception:
+    print(f"ERROR! INVALID COMMAND(s)")
 
 connect = sqlite3.connect('FutureCalendar2.db')
 cursor = connect.cursor()
@@ -19,6 +25,7 @@ cursor.execute("""CREATE TABLE IF NOT EXISTS calendar (
                date text,
                task text,
                username text,
+               ID int PRIMARY KEY,
                UNIQUE(date, task, username) ON CONFLICT REPLACE
                )""")
 
@@ -36,17 +43,18 @@ class Calendar(object):
             connect.commit()
             print(f"USER {username} added Task '{task}' to date: {date}")
         return 0
-    #function for recurring event handling
+    #function for handling recurring events
     def recurring_event(date, iter, task, username):
         with connect:
-            dt_date = datetime.strptime(date, "%Y/%m/%d")
+            dt_date = datetime.strptime(date, "%Y-%m-%d")
             steps = "year"
+            #handling each iteration value (daily, weekly, or yearly)
             if iter == "DAILY":
                 steps = "year"
                 start_date = dt_date
                 end_date = Calendar.add_years(start_date, 1)
                 for my_date in Calendar.daterange_daily(start_date, end_date):
-                    date = datetime.strftime(my_date, "%Y/%m/%d")
+                    date = datetime.strftime(my_date, "%Y-%m-%d")
                     cursor.execute("INSERT or REPLACE INTO calendar(date, task, username) VALUES (?, ?, ?)", (date, task, username))
                     connect.commit()
             elif iter == "WEEKLY":
@@ -54,7 +62,7 @@ class Calendar(object):
                 start_date = dt_date
                 end_date = Calendar.add_years(start_date, 1)
                 for my_date in Calendar.daterange_weekly(start_date, end_date):
-                    date = datetime.strftime(my_date, "%Y/%m/%d")
+                    date = datetime.strftime(my_date, "%Y-%m-%d")
                     cursor.execute("INSERT or REPLACE INTO calendar(date, task, username) VALUES (?, ?, ?)", (date, task, username))
                     connect.commit()
             elif iter == "YEARLY":
@@ -62,7 +70,7 @@ class Calendar(object):
                 start_date = dt_date
                 end_date = Calendar.add_years(start_date, 10)
                 for my_date in Calendar.daterange_yearly(start_date, end_date):
-                    date = datetime.strftime(my_date, "%Y/%m/%d")
+                    date = datetime.strftime(my_date, "%Y-%m-%d")
                     cursor.execute("INSERT or REPLACE INTO calendar(date, task, username) VALUES (?, ?, ?)", (date, task, username))
                     connect.commit()
             print(f"For the user: {username}\r\nThe task: {task} has been added as a {iter} task for the next {steps}.")
@@ -79,14 +87,15 @@ class Calendar(object):
     def daterange_yearly(start_date, years):
         for n in range(0, 10): 
             yield Calendar.add_years(start_date, n)
+
     #function to delete tasks for a specified date
-    def del_date(date):
+    def del_date(date, username):
         with connect:
-            cursor.execute("DELETE FROM calendar WHERE date=?",(date,))
+            cursor.execute("DELETE FROM calendar WHERE date=? AND username=?",(date, username,))
             connect.commit()
             print(f"All tasks on {date} have been deleted.")
         return 0
-    #functino to delete all tasks on calendar database
+    #function to delete all tasks on calendar database
     def del_all():
         with connect:
             cursor.execute("DELETE FROM calendar")
@@ -100,15 +109,35 @@ class Calendar(object):
             connect.commit()
             print(f"\r\nAll tasks for the user - {username} - have been deleted.")
         return 0
+
+    #deletes specific task when given task ID and logged in as matching user
+    def del_task(task_id, user_name):
+        with connect:
+            cursor.execute("SELECT * FROM calendar WHERE ID=?", (task_id,))
+            row = cursor.fetchone()
+            try:
+                task_user = row[2]
+                task_name = row[1]
+                task_date = row[0]
+                if user_name == task_user:
+                    cursor.execute("DELETE FROM calendar WHERE ID=?", (task_id,))
+                    connect.commit()
+                    print(f"Task number: {task_id} '{task_name}' has been deleted/completed.")
+                else:
+                    print(f"Unable to make changes to task: {task_name} \r\nAs it belongs to the user: {task_user}")
+            except Exception:
+                print(f"ERROR CALENDAR NOT INITIALIZED. Please add a task to the calendar before deleting a task.\r\n")
+
+
     #function to return all tasks and dates on calendar in the order of the dates
     def get_admin():
         with connect:
-            cursor.execute("SELECT * FROM calendar ORDER BY date")
+            cursor.execute("SELECT * FROM calendar ORDER BY date(date) ASC")
             dates = cursor.fetchall()
             temp_month_year = "TEMPLATE_MONTH_YEAR"
             temp_month_day = "TEMPLATE_MONTH_DAY"
             for date in dates:
-                current_date = datetime.strptime(date[0], "%Y/%m/%d")
+                current_date = datetime.strptime(date[0], "%Y-%m-%d")
                 current_month_year = datetime.strftime(current_date, "%B %Y")
                 current_month_day = datetime.strftime(current_date, "%d %B")
                 if (temp_month_year != current_month_year):
@@ -124,13 +153,13 @@ class Calendar(object):
     #function to get all tasks from current user
     def get_all(username):
         with connect:
-            cursor.execute("SELECT * FROM calendar WHERE username=? ORDER BY date ASC",(username,))
+            cursor.execute("SELECT * FROM calendar WHERE username=? ORDER BY date(date) ASC",(username,))
             dates = cursor.fetchall()
             temp_month_year = "TEMPLATE_MONTH_YEAR"
             temp_month_day = "TEMPLATE_MONTH_DAY"
             print(f"\r\nAll tasks for '{username}':")
             for date in dates:
-                current_date = datetime.strptime(date[0], "%Y/%m/%d")
+                current_date = datetime.strptime(date[0], "%Y-%m-%d")
                 current_month_year = datetime.strftime(current_date, "%B %Y")
                 current_month_day = datetime.strftime(current_date, "%d %B")
                 if (temp_month_year != current_month_year):
@@ -141,19 +170,33 @@ class Calendar(object):
                 if (temp_month_day != current_month_day):
                     temp_month_day = current_month_day
                     print(f"Tasks for {current_month_day}:")
-                print("- " + date[1])
+                print(f"{date[3]} - {date[1]}")
         return 0
     #function to display all tasks on the specified date from the calendar database for the current user
     def get_date(date, username):
         with connect:
-            cursor.execute("SELECT * FROM calendar WHERE date =? AND username=?",(date, username,))
+            cursor.execute("SELECT * FROM calendar WHERE date =? AND username=? ORDER BY date(date) ASC",(date, username,))
             dates = cursor.fetchall()
-            print(f"Current User: {username}")
+            print(f"\r\nCurrent User: {username}")
             print(f"TASKS FOR {date}:\r\n-------------------")
-            for date in dates:
-                print("- " + date[1])
+            for mydate in dates:
+                print(f"{mydate[3]} - {mydate[1]}")
             print(f"\r\n")
         return 0
+
+    #Display task and owner of task when given ID
+    def get_task(task_id):
+        with connect:
+            cursor.execute("SELECT * FROM calendar WHERE ID=?", (task_id,))
+            try:
+                row = cursor.fetchone()
+                task_user = row[2]
+                task_name = row[1]
+                task_date = row[0]
+                print(f"\r\nTask {task_id} occurs on {task_date} and belongs to the user - {task_user}:\r\n{task_name}\r\n")
+            except Exception:
+                print(f"\r\nERROR - Task ID ({task_id}) does not exist.\r\n")
+            
 
     #function to display all users in database
     def get_users():
@@ -164,6 +207,17 @@ class Calendar(object):
             for user in users:
                 print("- " + user[0])
         return 0
+
+    #returns a formatted date from any command (from the .ftd file) that requires it
+    def set_date(commands):
+        year = str(commands.year)
+        month = str(commands.month)
+        day = str(commands.day)
+        day = day.zfill(2)
+        month = month.zfill(2)
+        date = f"{year}-{month}-{day}"
+        return date
+
     #function to interpret the commands given from the .ftd file using the TextX Grammar specified in FutureToDo.tx
     def interpret(model):
         user_name = DEFAULT_USERNAME
@@ -173,11 +227,9 @@ class Calendar(object):
             subtask = []
             delimiter = "\r\n\t| "
             #these first if-elif blocks detect the type of operation the user will be doing
+            #This block is for "-" identifier in code
             if commands.__class__.__name__ == "SingleTask":
-                year = str(commands.add_date.year)
-                month = str(commands.add_date.month)
-                day = str(commands.add_date.day)
-                date = f"{year}/{month}/{day}"
+                date = Calendar.set_date(commands.add_date)
                 name = commands.add_task.name
                 for subtasks in commands.sub_task:
                     subtask.append(subtasks.subname.name)
@@ -188,6 +240,7 @@ class Calendar(object):
                     Calendar.add_event(date, task_list, user_name)
                 else:
                     Calendar.add_event(date, name, user_name)
+            #Block for "!" identifier in code.
             elif commands.__class__.__name__ == "User":
                 try:
                     user_name = commands.user_name.name
@@ -200,18 +253,13 @@ class Calendar(object):
                     print("LOGGED OUT USER: " + user_name)
                     user_name = DEFAULT_USERNAME
                     print(f"Now logged in as: {user_name}")
-                elif user_value == "CREATE":
-                    print(user_value + " " + user_name)
+                #elif user_value == "CREATE":
+                    #print(user_value + " " + user_name)
                 elif user_value == "DELETE":
-                    print(user_value)
-                    print(user_name)
                     Calendar.del_user(user_name)
-
+            #Block for "~" in code
             elif commands.__class__.__name__ =="RecurringTask":
-                year = str(commands.add_date.year)
-                month = str(commands.add_date.month)
-                day = str(commands.add_date.day)
-                date = f"{year}/{month}/{day}"
+                date = Calendar.set_date(commands.add_date)
                 name = commands.add_task.name
                 if commands.iter_option == "DAILY":
                     iter="DAILY"
@@ -230,7 +278,7 @@ class Calendar(object):
                     Calendar.recurring_event(date, iter, task_list, user_name)
                 else:
                     Calendar.recurring_event(date, iter, name, user_name)
-
+            #Block for "?" identifier in code
             elif commands.__class__.__name__ == "GetTask":
                 if commands.get_date == "ADMIN":
                     Calendar.get_admin()
@@ -238,28 +286,33 @@ class Calendar(object):
                     Calendar.get_users()
                 elif commands.get_date == "CALENDAR":
                     Calendar.get_all(user_name)
+                elif isinstance(commands.get_date, int):
+                    task_id = int(commands.get_date)
+                    Calendar.get_task(task_id)
                 else:
-                    year = str(commands.get_date.year)
-                    month = str(commands.get_date.month)
-                    day = str(commands.get_date.day)
-                    date = f"{year}/{month}/{day}"
+                    date = Calendar.set_date(commands.get_date)
                     Calendar.get_date(date, user_name)
-
+            #Block for "CLEAR" identifier in code
             elif commands.__class__.__name__ == "Clear":
                 if commands.clear_date == "ADMIN":
                     Calendar.del_all()
                 elif commands.clear_date == "CALENDAR":
                     Calendar.del_user(user_name)
                 else:
-                    year = str(commands.clear_date.year)
-                    month = str(commands.clear_date.month)
-                    day = str(commands.clear_date.day)
-                    date = f"{year}/{month}/{day}"
-                    Calendar.del_date(date)
-
+                    date = Calendar.set_date(commands.clear_date)
+                    Calendar.del_date(date, user_name)
+            #Block for "#" identifier in code
+            elif commands.__class__.__name__ == "Complete":
+                task_id = int(commands.identifier)
+                Calendar.del_task(task_id, user_name)
+            #BLock for "GUI" identifier in code, currently not implemented but grammar is in place for this to be implemented in the future.
             elif commands.__class__.__name__ == "GUI":
                 print(f"GUI NOT YET IMPLEMENTED")
-    
-calendar = Calendar()
-calendar.interpret()
+
+
+try:
+    calendar = Calendar()
+    calendar.interpret()
+except Exception:
+    print(f"ABORTING\r\n")
 connect.close()

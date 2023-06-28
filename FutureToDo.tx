@@ -3,11 +3,15 @@ Program:
 ;
 
 Command:
-	SingleTask | GetTask | Clear | RecurringTask | User | GUI
+	SingleTask | GetTask | Clear | RecurringTask | User | Complete | GUI
 ;
 
 User:
-	'!' (user_value='LOGIN' user_name=Username | user_value='CREATE' user_name=Username | user_value='LOGOUT')
+	'!' (user_value='LOGIN' user_name=Username | user_value='DELETE' user_name=Username | user_value='LOGOUT')
+;
+
+Complete:
+	'#' identifier=INT
 ;
 
 Username:
@@ -23,7 +27,7 @@ SubTask:
 ;
 
 GetTask:
-	'?' (get_date=Dates | get_date='CALENDAR' | get_date='ADMIN' | get_date='USERS')
+	'?' (get_date=Dates | get_date='CALENDAR' | get_date='ADMIN' | get_date='USERS' | get_date=INT)
 ;
 
 Clear:
